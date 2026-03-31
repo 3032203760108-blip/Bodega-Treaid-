@@ -1,0 +1,342 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Salida de Bodega - Inlacsa</title>
+<script src="https://unpkg.com/html5-qrcode"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', sans-serif; background: linear-gradient(135deg, #1e3c72, #2a5298); min-height: 100vh; padding: 20px; }
+.container { max-width: 600px; margin: 0 auto; background: white; border-radius: 20px; padding: 30px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+.logo { text-align: center; margin-bottom: 20px; }
+.logo h1 { color: #1e3c72; font-size: 28px; margin-bottom: 5px; }
+.logo p { color: #666; font-size: 14px; }
+.scanner-section { background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
+#reader { border: 3px dashed #1e3c72; border-radius: 10px; overflow: hidden; min-height: 250px; }
+.form-group { margin-bottom: 15px; }
+label { display: block; margin-bottom: 8px; color: #333; font-weight: 600; font-size: 14px; }
+input, select, textarea { width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px; }
+input:focus, select:focus, textarea:focus { outline: none; border-color: #1e3c72; }
+.paquetes-escaneados { background: #e3f2fd; padding: 15px; border-radius: 10px; margin-bottom: 20px; display: none; border-left: 4px solid #1e3c72; }
+.paquete-item { background: white; padding: 15px; margin-bottom: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+.paquete-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 2px solid #e0e0e0; }
+.paquete-nombre { font-weight: bold; color: #333; font-size: 16px; }
+.paquete-codigo { font-size: 12px; color: #666; background: #f0f0f0; padding: 4px 8px; border-radius: 4px; margin-top: 5px; }
+.paquete-disponible { background: #d4edda; color: #155724; padding: 10px; border-radius: 6px; font-weight: bold; text-align: center; margin: 10px 0; }
+.cantidad-grupo { margin-top: 15px; }
+.cantidad-label { display: block; margin-bottom: 8px; font-weight: 600; color: #555; font-size: 14px; }
+.cantidad-input { width: 100%; padding: 12px; text-align: center; font-size: 20px; font-weight: bold; border: 3px solid #1e3c72; border-radius: 8px; }
+.btn-eliminar { background: #ff4757; color: white; border: none; padding: 8px 15px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+.btn-registrar { width: 100%; background: linear-gradient(135deg, #1e3c72, #2a5298); color: white; border: none; padding: 15px; border-radius: 10px; font-size: 16px; font-weight: bold; cursor: pointer; transition: transform 0.2s; }
+.btn-registrar:hover { transform: translateY(-2px); }
+.btn-registrar:disabled { background: #ccc; cursor: not-allowed; transform: none; }
+.btn-descargar { width: 100%; background: #28a745; color: white; border: none; padding: 15px; border-radius: 10px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 10px; display: none; }
+.alert { padding: 15px; border-radius: 8px; margin-bottom: 20px; display: none; }
+.alert-success { background: #d4edda; border-left: 4px solid #28a745; color: #155724; }
+.alert-warning { background: #fff3cd; border-left: 4px solid #ffc107; color: #856404; }
+.scan-result { background: #28a745; color: white; padding: 10px; border-radius: 6px; margin-top: 10px; display: none; text-align: center; font-weight: bold; }
+</style>
+</head>
+<body>
+<div class="container">
+<div class="logo">
+<h1>?? INLACSA</h1>
+<p>Sistema de Salida de Bodega - Trade Marketing</p>
+</div>
+<div id="alertSuccess" class="alert alert-success"></div>
+<div id="alertWarning" class="alert alert-warning"></div>
+<div class="scanner-section">
+<h3 style="margin-bottom: 15px; color: #1e3c72;">?? Escanear Código QR del Paquete</h3>
+<div id="reader"></div>
+<div id="scanResult" class="scan-result"></div>
+</div>
+<form id="formularioSalida">
+<div class="form-group">
+<label>?? Nombre Completo *</label>
+<input type="text" id="nombre" required>
+</div>
+<div class="form-group">
+<label>?? Puesto *</label>
+<select id="puesto" required>
+<option value="">Selecciona...</option>
+<option value="Promotor">Promotor</option>
+<option value="Supervisor">Supervisor</option>
+<option value="Coordinador">Coordinador</option>
+<option value="Jefe Trade Marketing">Jefe Trade Marketing</option>
+</select>
+</div>
+<div class="form-group">
+<label>?? Destino / Punto de Venta *</label>
+<input type="text" id="ubicacion" placeholder="Ej: Super 24 Zona 10" required>
+</div>
+<div class="form-group">
+<label>?? Tipo de Actividad *</label>
+<select id="tipoEvento" required>
+<option value="">Selecciona...</option>
+<option value="Activación">Activación en punto de venta</option>
+<option value="Degustación">Degustación</option>
+<option value="Fachada">Instalación de fachada</option>
+<option value="Reposición">Reposición de material</option>
+<option value="Evento Especial">Evento especial</option>
+<option value="Otro">Otro</option>
+</select>
+</div>
+<div class="paquetes-escaneados" id="paquetesContainer">
+<h3 style="margin-bottom: 15px; color: #1e3c72;">?? Paquetes Escaneados</h3>
+<div id="listaPaquetes"></div>
+</div>
+<div class="form-group">
+<label>?? Comentarios adicionales</label>
+<textarea id="comentarios" rows="3" placeholder="Opcional"></textarea>
+</div>
+<button type="submit" class="btn-registrar" id="btnRegistrar" disabled>? Registrar Salida</button>
+<button type="button" class="btn-descargar" id="btnDescargar">?? Descargar Registro (CSV)</button>
+</form>
+</div>
+<script>
+let paquetesEscaneados = [];
+let html5QrCode;
+let registrosAcumulados = [];
+
+const paquetesDB = {
+  'Mat-NUTR-1': {
+    idPaquete: 'PROD-001',
+    codigoQR: 'Mat-NUTR-1',
+    producto: 'Forro de gondola',
+    marca: 'NUTRY LETY',
+    capacidad: 61 X 46 ,
+    unidadesActuales: 500,
+    estado: 'UNIDAD'
+  },
+  'Mat-LALA-2': {
+    idPaquete: 'PROD-002',
+    codigoQR: 'Mat-LALA-2',
+    producto: 'Forro de gondola',
+    marca: 'LALA',
+    capacidad: 61 X 46,
+    unidadesActuales: 500,
+    estado: 'UNIDAD'
+  },
+  'Mat-LALA-3': {
+    idPaquete: 'PROD-003',
+    codigoQR: 'Mat-LALA-3',
+    producto: 'Afiches  Q3',
+    marca: 'LALA',
+    capacidad: 51 X 40,
+    unidadesActuales: 250,
+    estado: 'UNIDAD'
+  },
+  'Mat-LALA-4': {
+    idPaquete: 'PROD-004',
+    codigoQR: 'Mat-LALA-4',
+    producto: 'Afiches Q1',
+    marca: 'LALA',
+    capacidad: 51 X 40,
+    unidadesActuales: 250,
+    estado: 'UNIDAD'
+  },
+  'Sum-Toda-5': {
+    idPaquete: 'PROD-005',
+    codigoQR: 'Sum-Toda-5',
+    producto: 'Guantes de Latex Bajo en polvo',
+    marca: 'Todas',
+    capacidad: Talla M Negro ,
+    unidadesActuales: 100,
+    estado: 'Paquete'
+  },
+  'Sum-Toda-6': {
+    idPaquete: 'PROD-006',
+    codigoQR: 'Sum-Toda-6',
+    producto: 'Servilleta',
+    marca: 'Todas',
+    capacidad: Paquete de 100 ,
+    unidadesActuales: 10,
+    estado: 'Paquete'
+  },
+  'Pro-Fore-7': {
+    idPaquete: 'PROD-007',
+    codigoQR: 'Pro-Fore-7',
+    producto: 'Basuraro Blanco',
+    marca: 'Foremost',
+    capacidad: 43 X 26,
+    unidadesActuales: 1,
+    estado: 'UNIDAD'
+  },
+  'Mat-NUTR-8': {
+    idPaquete: 'PROD-008',
+    codigoQR: 'Mat-NUTR-8',
+    producto: 'Forro de gondola',
+    marca: 'NUTRY LETY',
+    capacidad: 61 X 46 ,
+    unidadesActuales: 500,
+    estado: 'UNIDAD'
+  },
+  'Mat-NUTR-9': {
+    idPaquete: 'PROD-009',
+    codigoQR: 'Mat-NUTR-9',
+    producto: 'Forro de gondola',
+    marca: 'NUTRY LETY',
+    capacidad: 61 X 46 ,
+    unidadesActuales: 500,
+    estado: 'UNIDAD'
+  },
+  'Mat-NUTR-10': {
+    idPaquete: 'PROD-010',
+    codigoQR: 'Mat-NUTR-10',
+    producto: 'Forro de gondola',
+    marca: 'NUTRY LETY',
+    capacidad: 61 X 46 ,
+    unidadesActuales: 500,
+    estado: 'UNIDAD'
+  },
+  'Mat-NUTR-11': {
+    idPaquete: 'PROD-011',
+    codigoQR: 'Mat-NUTR-11',
+    producto: 'Forro de gondola',
+    marca: 'NUTRY LETY',
+    capacidad: 61 X 46 ,
+    unidadesActuales: 500,
+    estado: 'UNIDAD'
+  },
+  'Mat-NUTR-12': {
+    idPaquete: 'PROD-012',
+    codigoQR: 'Mat-NUTR-12',
+    producto: 'Forro de gondola',
+    marca: 'NUTRY LETY',
+    capacidad: 61 X 46 ,
+    unidadesActuales: 500,
+    estado: 'UNIDAD'
+  }
+};
+
+function iniciarEscaner() {
+  html5QrCode = new Html5Qrcode('reader');
+  html5QrCode.start(
+    { facingMode: 'environment' },
+    { fps: 10, qrbox: { width: 250, height: 250 } },
+    onScanSuccess
+  ).catch(err => alert('?? Error al acceder a la cámara'));
+}
+
+function onScanSuccess(decodedText) {
+  const paq = paquetesDB[decodedText];
+  if (!paq) {
+    mostrarMensajeEscaneo('? Código no encontrado', true);
+    return;
+  }
+  if (paq.unidadesActuales === 0) {
+    mostrarMensajeEscaneo('?? Paquete vacío', true);
+    return;
+  }
+  if (paquetesEscaneados.find(p => p.codigoQR === decodedText)) {
+    mostrarMensajeEscaneo('?? Ya escaneado', true);
+    return;
+  }
+  paquetesEscaneados.push({...paq, cantidadASacar: 0});
+  actualizarListaPaquetes();
+  mostrarMensajeEscaneo('? ' + paq.producto + ' | Disponible: ' + paq.unidadesActuales);
+}
+
+function actualizarListaPaquetes() {
+  const container = document.getElementById('paquetesContainer');
+  const lista = document.getElementById('listaPaquetes');
+  if (paquetesEscaneados.length === 0) {
+    container.style.display = 'none';
+    document.getElementById('btnRegistrar').disabled = true;
+    return;
+  }
+  container.style.display = 'block';
+  document.getElementById('btnRegistrar').disabled = false;
+  lista.innerHTML = paquetesEscaneados.map((p, index) => `
+    <div class='paquete-item'>
+      <div class='paquete-header'>
+        <div><div class='paquete-nombre'>${p.producto} - ${p.marca}</div>
+        <div class='paquete-codigo'>Código: ${p.codigoQR} | ID: ${p.idPaquete}</div></div>
+        <button type='button' class='btn-eliminar' onclick='eliminarPaquete(${index})'>???</button>
+      </div>
+      <div class='paquete-disponible'>?? Disponibles: ${p.unidadesActuales} unidades</div>
+      <div class='cantidad-grupo'>
+        <label class='cantidad-label'>¿Cuántas unidades vas a sacar?</label>
+        <input type='number' class='cantidad-input' value='${p.cantidadASacar}' min='0' max='${p.unidadesActuales}' onchange='actualizarCantidad(${index}, this.value)' placeholder='Ingresa cantidad'>
+      </div>
+    </div>
+  `).join('');
+}
+
+function actualizarCantidad(index, nuevaCantidad) {
+  const cantidad = parseInt(nuevaCantidad) || 0;
+  const paquete = paquetesEscaneados[index];
+  if (cantidad > paquete.unidadesActuales) {
+    alert('?? No puedes sacar más de ' + paquete.unidadesActuales + ' unidades');
+    actualizarListaPaquetes();
+    return;
+  }
+  paquetesEscaneados[index].cantidadASacar = cantidad;
+}
+
+function eliminarPaquete(index) {
+  paquetesEscaneados.splice(index, 1);
+  actualizarListaPaquetes();
+}
+
+function mostrarMensajeEscaneo(mensaje, esError = false) {
+  const el = document.getElementById('scanResult');
+  el.textContent = mensaje;
+  el.style.background = esError ? '#dc3545' : '#28a745';
+  el.style.display = 'block';
+  setTimeout(() => el.style.display = 'none', 2500);
+}
+
+document.getElementById('formularioSalida').addEventListener('submit', function(e) {
+  e.preventDefault();
+  const paquetesSinCantidad = paquetesEscaneados.filter(p => p.cantidadASacar === 0);
+  if (paquetesSinCantidad.length > 0) {
+    document.getElementById('alertWarning').textContent = '?? Ingresa las cantidades';
+    document.getElementById('alertWarning').style.display = 'block';
+    setTimeout(() => document.getElementById('alertWarning').style.display = 'none', 4000);
+    return;
+  }
+  const datos = {
+    fecha: new Date().toLocaleDateString('es-GT'),
+    hora: new Date().toLocaleTimeString('es-GT'),
+    nombre: document.getElementById('nombre').value,
+    puesto: document.getElementById('puesto').value,
+    ubicacion: document.getElementById('ubicacion').value,
+    tipoEvento: document.getElementById('tipoEvento').value,
+    comentarios: document.getElementById('comentarios').value,
+    paquetes: paquetesEscaneados.filter(p => p.cantidadASacar > 0)
+  };
+  registrosAcumulados.push(datos);
+  const totalUnidades = datos.paquetes.reduce((sum, p) => sum + p.cantidadASacar, 0);
+  document.getElementById('alertSuccess').textContent = '? Registrado: ' + totalUnidades + ' unidades';
+  document.getElementById('alertSuccess').style.display = 'block';
+  document.getElementById('btnDescargar').style.display = 'block';
+  setTimeout(() => {
+    this.reset();
+    paquetesEscaneados = [];
+    actualizarListaPaquetes();
+    document.getElementById('alertSuccess').style.display = 'none';
+    window.scrollTo(0, 0);
+  }, 3000);
+});
+
+document.getElementById('btnDescargar').addEventListener('click', function() {
+  let csv = 'Fecha|Hora|Responsable|Puesto|Tipo_Movimiento|ID_Paquete|Codigo_QR|Producto|Marca|Capacidad|Cantidad_Sacada|Ubicacion|Tipo_Evento|Comentarios\\n';
+  registrosAcumulados.forEach(r => {
+    r.paquetes.forEach(p => {
+      csv += `${r.fecha}|${r.hora}|${r.nombre}|${r.puesto}|SALIDA|${p.idPaquete}|${p.codigoQR}|${p.producto}|${p.marca}|${p.capacidad}|${p.cantidadASacar}|${r.ubicacion}|${r.tipoEvento}|${r.comentarios}\\n`;
+    });
+  });
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = 'salidas_' + new Date().toISOString().split('T')[0] + '.csv';
+  link.click();
+  alert('? CSV descargado');
+});
+
+window.onload = iniciarEscaner;
+</script>
+</body>
+</html>
