@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Salida de Bodega - Inlacsa</title>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #1e3c72, #2a5298); min-height: 100vh; padding: 15px; }
+        .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 20px; padding: 25px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+        .logo { text-align: center; margin-bottom: 20px; }
+        .logo h1 { color: #1e3c72; font-size: 32px; margin-bottom: 5px; font-weight: 700; }
+        .logo p { color: #666; font-size: 14px; }
+        .scanner-section { background: #f8f9fa; padding: 20px; border-radius: 12px; margin-bottom: 20px; }
+        .scanner-section h3 { margin-bottom: 15px; color: #1e3c72; font-size: 18px; text-align: center; }
+        #reader { width: 100%; border-radius: 10px; overflow: hidden; }
+        .manual-input { margin-top: 20px; padding-top: 20px; border-top: 2px dashed #dee2e6; text-align: center; }
+        .manual-input p { font-size: 13px; color: #666; margin-bottom: 10px; }
+        .input-codigo { width: 100%; padding: 15px; font-size: 18px; border: 3px solid #1e3c72; border-radius: 10px; text-align: center; font-weight: bold; text-transform: uppercase; margin-bottom: 10px; }
+        .btn-agregar { width: 100%; background: #28a745; color: white; border: none; padding: 15px; border-radius: 10px; font-size: 16px; font-weight: bold; cursor: pointer; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 8px; color: #333; font-weight: 600; font-size: 14px; }
+        input, select, textarea { width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px; font-family: inherit; }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: #1e3c72; }
+        .paquetes-escaneados { background: #e3f2fd; padding: 15px; border-radius: 12px; margin-bottom: 20px; display: none; border-left: 4px solid #1e3c72; }
+        .paquetes-escaneados h3 { margin-bottom: 15px; color: #1e3c72; font-size: 18px; }
+        .paquete-item { background: white; padding: 15px; margin-bottom: 12px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .paquete-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 2px solid #e0e0e0; }
+        .paquete-nombre { font-weight: bold; color: #1e3c72; font-size: 16px; line-height: 1.3; }
+        .paquete-codigo { font-size: 11px; color: #666; background: #f0f0f0; padding: 4px 8px; border-radius: 4px; margin-top: 5px; display: inline-block; }
+        .paquete-disponible { background: #d4edda; color: #155724; padding: 10px; border-radius: 8px; font-weight: 600; text-align: center; margin: 10px 0; font-size: 14px; }
+        .cantidad-grupo { margin-top: 12px; }
+        .cantidad-label { display: block; margin-bottom: 8px; font-weight: 600; color: #555; font-size: 13px; }
+        .cantidad-input { width: 100%; padding: 12px; text-align: center; font-size: 24px; font-weight: bold; border: 3px solid #1e3c72; border-radius: 10px; color: #1e3c72; }
+        .btn-eliminar { background: #dc3545; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; white-space: nowrap; }
+        .btn-registrar { width: 100%; background: linear-gradient(135deg, #1e3c72, #2a5298); color: white; border: none; padding: 16px; border-radius: 12px; font-size: 16px; font-weight: bold; cursor: pointer; margin-bottom: 10px; }
+        .btn-registrar:disabled { background: #ccc; cursor: not-allowed; }
+        .btn-descargar { width: 100%; background: #28a745; color: white; border: none; padding: 16px; border-radius: 12px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 10px; display: none; }
+        .alert { padding: 15px; border-radius: 10px; margin-bottom: 20px; display: none; font-weight: 500; }
+        .alert-success { background: #d4edda; border-left: 4px solid #28a745; color: #155724; }
+        .alert-warning { background: #fff3cd; border-left: 4px solid #ffc107; color: #856404; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">
+            <h1>🥛 INLACSA</h1>
+            <p>Sistema de Salida de Bodega - Trade Marketing</p>
+        </div>
+        
+        <div id="alertSuccess" class="alert alert-success"></div>
+        <div id="alertWarning" class="alert alert-warning"></div>
+        
+        <div class="scanner-section">
+            <h3>📷 Escanear Código QR del Paquete</h3>
+            <div id="reader"></div>
+            
+            <div class="manual-input">
+                <p><strong>💡 O ingresa el código manualmente:</strong></p>
+                <input type="text" id="inputCodigo" class="input-codigo" placeholder="Ej: Mat-LALA-2" autocomplete="off">
+                <button type="button" id="btnAgregar" class="btn-agregar">➕ Agregar Paquete</button>
+            </div>
+        </div>
+        
+        <form id="formularioSalida">
+            <div class="form-group">
+                <label>👤 Nombre Completo *</label>
+                <input type="text" id="nombre" required placeholder="Ingresa tu nombre completo">
+            </div>
+            
+            <div class="form-group">
+                <label>💼 Puesto *</label>
+                <select id="puesto" required>
+                    <option value="">Selecciona tu puesto...</option>
+                    <option value="Promotor Helado">Promotor Helado</option>
+                    <option value="Promotor">Promotor</option>
+                    <option value="Supervisor">Supervisor</option>
+                    <option value="Coordinador">Coordinador</option>
+                    <option value="Jefe Trade Marketing">Jefe Trade Marketing</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>🏢 CEDIS / Área *</label>
+                <input type="text" id="cedis" placeholder="Ej: CEDIS PETAPA" required>
+            </div>
+            
+            <div class="form-group">
+                <label>📍 Destino / Punto de Venta *</label>
+                <input type="text" id="ubicacion" placeholder="Ej: Super 24 Zona 10" required>
+            </div>
+            
+            <div class="form-group">
+                <label>🎯 Tipo de Actividad *</label>
+                <select id="tipoEvento" required>
+                    <option value="">Selecciona el tipo...</option>
+                    <option value="Activación BTL en PDV">Activación BTL en PDV</option>
+                    <option value="Degustación">Degustación</option>
+                    <option value="Fachada">Instalación de fachada</option>
+                    <option value="Reposición">Reposición de material</option>
+                    <option value="Evento Especial">Evento especial</option>
+                    <option value="Otro">Otro</option>
+                </select>
+            </div>
+            
+            <div class="paquetes-escaneados" id="paquetesContainer">
+                <h3>📦 Paquetes Agregados</h3>
+                <div id="listaPaquetes"></div>
+            </div>
+            
+            <div class="form-group">
+                <label>💬 Observaciones</label>
+                <textarea id="comentarios" rows="3" placeholder="Información adicional (opcional)"></textarea>
+            </div>
+            
+            <button type="submit" class="btn-registrar" id="btnRegistrar" disabled>
+                ✅ Registrar Salida
+            </button>
+            
+            <button type="button" class="btn-descargar" id="btnDescargarCSV">
+                💾 Descargar CSV (Para importar)
+            </button>
+            
+            <button type="button" class="btn-descargar" id="btnDescargarPase" style="background: #007bff;">
+                📄 Descargar Pase de Salida (Para imprimir)
+            </button>
+        </form>
+    </div>
+
+    <script>
+        console.log('Script iniciado');
+        
+        // BASE DE DATOS
+        const paquetesDB = {
+            "Mat-NUTR-1": { idPaquete: "PAQ-001", codigoQR: "Mat-NUTR-1", producto: "Forro de gondola", marca: "NUTRY LETY", capacidad: 500, unidadesActuales: 500 },
+            "Mat-LALA-2": { idPaquete: "PAQ-002", codigoQR: "Mat-LALA-2", producto: "Forro de gondola", marca: "LALA", capacidad: 500, unidadesActuales: 500 },
+            "Mat-LALA-3": { idPaquete: "PAQ-003", codigoQR: "Mat-LALA-3", producto: "Afiches Q3", marca: "LALA", capacidad: 250, unidadesActuales: 250 }
+        };
+        
+        let paquetesEscaneados = [];
+        let registrosAcumulados = [];
+        let numeroSalida = 1;
+        
+        // Inicializar escáner
+        const scanner = new Html5QrcodeScanner('reader', { fps: 10, qrbox: { width: 250, height: 250 } }, false);
+        scanner.render(function(text) { procesarCodigo(text); }, function(err) { });
+        
+        // Botón manual
+        document.getElementById('btnAgregar').addEventListener('click', function() {
+            const codigo = document.getElementById('inputCodigo').value.trim();
+            if (!codigo) { alert('Ingresa un código'); return; }
+            procesarCodigo(codigo);
+            document.getElementById('inputCodigo').value = '';
+        });
+        
+        function procesarCodigo(codigo) {
+            const paquete = paquetesDB[codigo];
+            if (!paquete) { alert('Código no encontrado'); return; }
+            if (paquetesEscaneados.find(p => p.codigoQR === codigo)) { alert('Ya agregado'); return; }
+            
+            paquetesEscaneados.push({
+                idPaquete: paquete.idPaquete,
+                codigoQR: paquete.codigoQR,
+                producto: paquete.producto,
+                marca: paquete.marca,
+                capacidad: paquete.capacidad,
+                disponible: paquete.unidadesActuales,
+                cantidadASacar: 0
+            });
+            
+            actualizarLista();
+        }
+        
+        function actualizarLista() {
+    if (paquetesEscaneados.length === 0) {
+        document.getElementById('paquetesContainer').style.display = 'none';
+        return;
+    }
+    
+    document.getElementById('paquetesContainer').style.display = 'block';
+    document.getElementById('btnRegistrar').disabled = false;
+    
+    let html = '';
+    for (let i = 0; i < paquetesEscaneados.length; i++) {
+        const p = paquetesEscaneados[i];
+        html += '<div class="paquete-item">';
+        html += '<div class="paquete-header">';
+        html += '<div style="flex:1">';
+        html += '<div class="paquete-nombre">' + p.producto + ' - ' + p.marca + '</div>';
+        html += '<div class="paquete-codigo">' + p.codigoQR + '</div>';
+        html += '</div>';
+        html += '<button type="button" class="btn-eliminar" onclick="eliminarPaquete(' + i + ')">🗑️</button>';
+        html += '</div>';
+        html += '<div class="paquete-disponible">📦 Disponibles: ' + p.disponible + ' unidades</div>';
+        html += '<div class="cantidad-grupo">';
+        html += '<label class="cantidad-label">Cantidad a sacar:</label>';
+        html += '<input type="number" class="cantidad-input" placeholder="0" min="0" max="' + p.disponible + '" onchange="paquetesEscaneados[' + i + '].cantidadASacar=parseInt(this.value)">';
+        html += '</div>';
+        html += '</div>';
+    }
+function eliminarPaquete(i) {
+    paquetesEscaneados.splice(i, 1);
+    actualizarLista();
+}
+    document.getElementById('listaPaquetes').innerHTML = html;
+}
+        
+        document.getElementById('formularioSalida').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const datos = {
+                numeroSalida: String(numeroSalida++).padStart(6, '0'),
+                fecha: new Date().toLocaleDateString('es-GT'),
+                nombre: document.getElementById('nombre').value,
+                puesto: document.getElementById('puesto').value,
+                cedis: document.getElementById('cedis').value,
+                ubicacion: document.getElementById('ubicacion').value,
+                tipoEvento: document.getElementById('tipoEvento').value,
+                comentarios: document.getElementById('comentarios').value,
+                paquetes: paquetesEscaneados.filter(p => p.cantidadASacar > 0)
+            };
+            
+            registrosAcumulados.push(datos);
+            document.getElementById('btnDescargarCSV').style.display = 'block';
+            document.getElementById('btnDescargarPase').style.display = 'block';
+            
+            alert('Salida registrada');
+            this.reset();
+            paquetesEscaneados = [];
+            actualizarLista();
+        });
+        
+        document.getElementById('btnDescargarCSV').addEventListener('click', function() {
+            let csv = "Fecha|Hora|Responsable|Puesto|Tipo_Movimiento|ID_Paquete|Codigo_QR|Producto|Marca|Capacidad|Cantidad|Ubicacion|Actividad|Comentarios\n";
+            
+            for (let i = 0; i < registrosAcumulados.length; i++) {
+                const r = registrosAcumulados[i];
+                for (let j = 0; j < r.paquetes.length; j++) {
+                    const p = r.paquetes[j];
+                    csv += r.fecha + '||' + r.nombre + '|' + r.puesto + '|SALIDA|' + p.idPaquete + '|' + p.codigoQR + '|' + p.producto + '|' + p.marca + '|' + p.capacidad + '|' + p.cantidadASacar + '|' + r.ubicacion + '|' + r.tipoEvento + '|' + r.comentarios + '\n';
+                }
+            }
+            
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'salidas.csv';
+            link.click();
+        });
+        
+        function crearPaseHTML(datos) {
+    let totalUnidades = 0;
+    let filasTabla = '';
+    
+    for (let i = 0; i < datos.paquetes.length; i++) {
+        const p = datos.paquetes[i];
+        totalUnidades += p.cantidadASacar;
+        filasTabla += '<tr>';
+        filasTabla += '<td style="text-align:center">' + p.cantidadASacar + '</td>';
+        filasTabla += '<td>' + p.producto + ' ' + p.marca + '</td>';
+        filasTabla += '<td style="text-align:center">' + p.cantidadASacar + '</td>';
+        filasTabla += '<td style="text-align:center">NO</td>';
+        filasTabla += '</tr>';
+    }
+    
+    const obs = datos.comentarios || 'MATERIALES PARA ACTIVACION BTL EN PDV';
+    
+    let html = '<!DOCTYPE html>';
+    html += '<html><head><meta charset="UTF-8"><title>Pase Salida</title>';
+    html += '<style>';
+    html += 'body{font-family:Arial;font-size:11pt;margin:20px}';
+    html += '.header{text-align:center;margin-bottom:10px}';
+    html += '.header h2{margin:0;font-size:11pt}';
+    html += '.header h1{margin:5px 0;font-size:14pt}';
+    html += '.info-box{border:2px solid black;padding:10px;margin:10px 0}';
+    html += '.info-row{display:flex;margin-bottom:5px}';
+    html += '.info-label{font-weight:bold;width:120px}';
+    html += '.info-value{flex:1;border-bottom:1px solid gray}';
+    html += 'table{width:100%;border-collapse:collapse;margin:15px 0}';
+    html += 'table,th,td{border:1px solid black}';
+    html += 'th{background:lightgray;padding:8px;font-size:10pt}';
+    html += 'td{padding:6px;font-size:10pt}';
+    html += '.totales{text-align:right;font-weight:bold;padding:10px;background:lightgray}';
+    html += '.firmas{display:flex;justify-content:space-between;margin-top:30px}';
+    html += '.firma-box{text-align:center;width:45%}';
+    html += '.firma-linea{border-top:2px solid black;margin-top:50px;padding-top:5px}';
+    html += '.observaciones{margin-top:20px;border:1px solid black;padding:10px;min-height:60px}';
+    html += '.footer{margin-top:20px;font-size:9pt;text-align:center}';
+    html += '</style></head><body>';
+    html += '<div class="header">';
+    html += '<h2>MATERIALES PARA ACTIVACION BTL EN PDV</h2>';
+    html += '<h2>DE CANAL HELADOS / PROMOCIONALES</h2>';
+    html += '<h1>NOTA DE SALIDA TMK</h1>';
+    html += '<p style="text-align:right;margin:10px 0">No. ' + datos.numeroSalida + '</p>';
+    html += '<p>Fecha: ' + datos.fecha + '</p>';
+    html += '</div>';
+    html += '<div class="info-box">';
+    html += '<div class="info-row">';
+    html += '<div class="info-label">ENTREGA A:</div>';
+    html += '<div class="info-value">' + datos.nombre + '</div>';
+    html += '<div class="info-label" style="margin-left:20px">POSICION:</div>';
+    html += '<div class="info-value">' + datos.puesto + '</div>';
+    html += '</div>';
+    html += '<div class="info-row">';
+    html += '<div class="info-label">CEDE:</div>';
+    html += '<div class="info-value">' + datos.cedis + '</div>';
+    html += '<div class="info-label" style="margin-left:20px">AREA:</div>';
+    html += '<div class="info-value">TRADE MARKETING</div>';
+    html += '</div>';
+    html += '</div>';
+    html += '<table>';
+    html += '<thead><tr>';
+    html += '<th style="width:80px">CANTIDAD</th>';
+    html += '<th>CONCEPTO - REFERENCIA</th>';
+    html += '<th style="width:80px">SALIDA</th>';
+    html += '<th style="width:80px">RETORNO</th>';
+    html += '</tr></thead>';
+    html += '<tbody>';
+    html += filasTabla;
+    html += '<tr><td colspan="4" class="totales">TOTALES: ' + totalUnidades + '</td></tr>';
+    html += '</tbody></table>';
+    html += '<div class="observaciones">';
+    html += '<strong>OBSERVACIONES:</strong><br>' + obs;
+    html += '</div>';
+    html += '<div class="firmas">';
+    html += '<div class="firma-box">';
+    html += '<strong>FIRMA DEL RECEPTOR:</strong>';
+    html += '<div class="firma-linea">' + datos.nombre + ' - ' + datos.puesto + '</div>';
+    html += '</div>';
+    html += '<div class="firma-box">';
+    html += '<strong>SEGURIDAD:</strong>';
+    html += '<div class="firma-linea">NOMBRE:</div>';
+    html += '</div>';
+    html += '</div>';
+    html += '<div class="footer">';
+    html += '<strong>ORIGINAL: CONTROL BODEGA MATERIALES TRADE MARKETING GUA</strong>';
+    html += '</div>';
+    html += '</body></html>';
+    
+    return html;
+}
+
+document.getElementById('btnDescargarPase').addEventListener('click', function() {
+    if (registrosAcumulados.length === 0) {
+        alert('No hay registros');
+        return;
+    }
+    
+    const datos = registrosAcumulados[registrosAcumulados.length - 1];
+    const html = crearPaseHTML(datos);
+    
+    const blob = new Blob([html], { type: 'text/html' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'pase_salida_' + datos.numeroSalida + '.html';
+    link.click();
+    
+    alert('Pase generado - Abrelo para imprimir');
+});
+    </script>
+</body>
+</html>
